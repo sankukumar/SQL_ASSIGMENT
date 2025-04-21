@@ -1,5 +1,5 @@
 /*1. Create new database & employee table (based on give sample data),  create employee table with primary key (EmployeeID)*/                   
-use amazon_db
+use amazon_db;
 CREATE TABLE EMP_DETAIL_TB(EMP_ID INT PRIMARY KEY, FIRST_NAME VARCHAR(20), LAST_NAME VARCHAR(20), SALARY INT, JOINING_DATE DATE,
                                DEPARTMENT VARCHAR(20),GENDER VARCHAR(20), JOB_TITLE VARCHAR(20));
 -- 3. Write a query to create a clone of an existing table using Create Command.
@@ -21,6 +21,7 @@ select * from emp_detail_tb order by rand() limit 1 ;
  select upper(first_name) as first_name_upper from emp_detail_tb;
  SELECT LOWER(FIRST_NAME) AS FIRST_NAME_LOWER FROM EMP_DETAIL_TB;
  SELECT FIRST_NAME, LAST_NAME, concat(FIRST_NAME,' ',LAST_NAME) FULL_NAME FROM EMP_DETAIL_TB;
+ select concat('Hello',' ',first_name) from emp_detail_tb;
  /*9. Select the employee details of
  Whose “first_name” is ‘Malli’
  Whose “first_name” present in ("Malli","Meena", "Anjali")
@@ -74,7 +75,7 @@ WHEN SALARY >60000 THEN 'HIGH'
 ELSE 'MEDIUM'
 END AS SALARY_CATEGORY
 FROM EMP_DETAIL_TB;
-/*Display first_name, department, and a department classification. (If department is
+/* 3. Display first_name, department, and a department classification. (If department is
  'IT', display 'Technical'; if 'HR', display 'Human Resources'; if 'Finance', display
  'Accounting'; otherwise, display 'Other')*/
 SELECT FIRST_NAME, DEPARTMENT,
@@ -85,7 +86,7 @@ SELECT FIRST_NAME, DEPARTMENT,
  ELSE 'OTHER'
  END AS DEP_CLASSIFICATION
  FROM EMP_DETAIL_TB;
- /* Display first_name, salary, and eligibility for a salary raise. (If salary is less than
+ /* 4. Display first_name, salary, and eligibility for a salary raise. (If salary is less than
  50,000, mark as 'Eligible for Raise'; otherwise, 'Not Eligible') */
  SELECT FIRST_NAME,SALARY,
  CASE 
@@ -127,6 +128,8 @@ SELECT DEPARTMENT, sum(salary) as total_sal FROM EMP_DETAIL_TB Group BY DEPARTME
 -- 2.Write down the query to fetch project name assign to more than one Employee
 SELECT * FROM project_details_tb;
 SELECT PROJECT_NAME,COUNT(emp_id_NO) FROM project_details_tb group by project_name having COUNT(emp_id_no)>1;
+select project_name from (
+select project_name,count(emp_id_no)cnt from project_details_tb group by project_name) T where cnt>1;
 -- 3.write the query to get the department, total no. of departments, total(sum) salary  with respect to department from "employee table" table.
 select department, count(department), sum(salary) from emp_detail_tb group by department;
 /* 4.Get the department-wise salary details from the "employee table" table:
@@ -217,3 +220,37 @@ WHERE P.PROJECT_NAME IN (SELECT PROJECT_NAME FROM project_details_tb group by PR
  /*8. Get records from the "ProjectDetail" table where the corresponding employee ID does
  not exist in the "employee table."*/
 select p.project_name from project_details_tb p left join emp_detail_tb e on e.emp_id = p.emp_id_no where e.first_name is null ;
+							#RANKING FUNCTIONS
+/* 1. Get all project names from the "ProjectDetail" table, even if they are not linked to any
+ employee, sorted by first name from the "employee table" and "ProjectDetail" table.*/
+ SELECT P.PROJECT_NAME FROM emp_detail_tb E RIGHT JOIN project_details_tb P ON E.emp_id = P.emp_id_no;
+/* 2.  Find the project names from the "ProjectDetail" table that have not been assigned to
+ any employee using the "employee table" and "ProjectDetail" table.*/
+ SELECT P.PROJECT_NAME FROM emp_detail_tb E RIGHT JOIN project_details_tb P ON E.emp_id = P.emp_id_no WHERE E.emp_id IS NULL;
+ /* 3. Get the employee name and project name for employees who are assigned to more than
+ one project.*/
+ SELECT E.FIRST_NAME, P.PROJECT_NAME FROM emp_detail_tb E JOIN project_details_tb P ON E.emp_id = P.emp_id_no WHERE E.emp_id IN (SELECT emp_id_no FROM 
+project_details_tb group by emp_id_no HAVING COUNT(emp_id_no)>1);
+/* 4. Get the project name and the employee names of employees working on projects that
+ have more than one employee assigned.*/
+ SELECT P.PROJECT_NAME, E.FIRST_NAME FROM emp_detail_tb E JOIN project_details_tb P ON E.emp_id = P.emp_id_no WHERE P.project_name IN (SELECT project_name FROM project_details_tb GROUP BY project_name HAVING count(PROJECT_NAME)>1) order by P.project_name;
+/* 5.  Get records from the "ProjectDetail" table where the corresponding employee ID does
+ not exist in the "employee table."*/
+ SELECT project_id,emp_id_no,project_name,start_date,end_date,status FROM (
+ SELECT P.*,E.EMP_ID FROM emp_detail_tb E  RIGHT JOIN project_details_tb P ON E.emp_id = P.emp_id_no WHERE E.emp_id IS NULL) A;
+					#PARTITIONING DATA
+/* 1. Assign a row number to each employee within their department based on salary in
+ descending order.*/
+ SELECT FIRST_NAME, DEPARTMENT,SALARY, row_number() OVER(PARTITION BY department ORDER BY DEPARTMENT,SALARY DESC) FROM EMP_DETAIL_TB ;
+-- 2. Rank employees within each department based on salary using RANK().
+ SELECT FIRST_NAME, DEPARTMENT,SALARY, rank() OVER(PARTITION BY department ORDER BY DEPARTMENT,SALARY DESC) FROM EMP_DETAIL_TB ;
+-- 3. Rank employees within each department based on salary using DENSE_RANK().
+SELECT FIRST_NAME, DEPARTMENT,SALARY, dense_rank() OVER(PARTITION BY department ORDER BY DEPARTMENT,SALARY DESC) FROM EMP_DETAIL_TB ;
+-- 4. Find the highest-paid employee in each department using RANK().
+SELECT DISTINCT * FROM (SELECT FIRST_NAME, DEPARTMENT,SALARY, rank() OVER(PARTITION BY department ORDER BY DEPARTMENT,SALARY DESC) RNK FROM EMP_DETAIL_TB) A WHERE RNK = 1  ;
+-- 5. Find the second highest-paid employee in each department using RANK().
+SELECT DISTINCT * FROM (SELECT FIRST_NAME, DEPARTMENT,SALARY, dense_rank() OVER(PARTITION BY department ORDER BY DEPARTMENT,SALARY DESC) RNK FROM EMP_DETAIL_TB) A WHERE RNK = 2;
+-- 6. Rank employees based on their years of experience within each department.
+SELECT distinct FIRST_NAME, JOINING_DATE,DEPARTMENT, dense_rank() OVER(PARTITION BY DEPARTMENT ORDER BY JOINING_DATE DESC) FROM EMP_DETAIL_TB;
+-- 7. Find the employee with the earliest join date in each department using RANK().
+SELECT distinct FIRST_NAME, JOINING_DATE,DEPARTMENT, dense_rank() OVER(PARTITION BY DEPARTMENT ORDER BY JOINING_DATE) FROM EMP_DETAIL_TB;
